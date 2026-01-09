@@ -1,10 +1,10 @@
 {
-  "name": "نظام إدارة القضايا",
-  "short_name": "القضايا",
-  "description": "نظام إدارة القضايا والمحاكمات القانونية",
+  "name": "نظام إدارة القضايا الذهبي",
+  "short_name": "القضايا الذهبي",
+  "description": "نظام إدارة القضايا والمحاكمات القانونية - النسخة الذهبية",
   "lang": "ar",
   "dir": "rtl",
-  "theme_color": "#000000",
+  "theme_color": "#D4AF37",
   "background_color": "#000000",
   "display": "standalone",
   "orientation": "portrait",
@@ -14,12 +14,14 @@
     {
       "src": "assets/icon-72.png",
       "sizes": "72x72",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "assets/icon-96.png",
       "sizes": "96x96",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
       "src": "assets/icon-128.png",
@@ -53,7 +55,8 @@
       "src": "assets/screenshot1.png",
       "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "الصفحة الرئيسية"
     }
   ],
   "categories": ["business", "productivity", "utilities"],
@@ -70,6 +73,13 @@
       "short_name": "الجلسات",
       "description": "إدارة جلسات المحكمة",
       "url": "/?sessions=1",
+      "icons": [{ "src": "assets/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "الجلسات القادمة",
+      "short_name": "جلسات الأسبوع",
+      "description": "عرض جلسات هذا الأسبوع",
+      "url": "/?week=1",
       "icons": [{ "src": "assets/icon-96.png", "sizes": "96x96" }]
     }
   ]
