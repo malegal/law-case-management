@@ -1,7 +1,7 @@
 // Configuration File
 const APP_CONFIG = {
     APP_NAME: "نظام إدارة القضايا",
-    VERSION: "1.0.0",
+    VERSION: "2.0.0",
     PASSWORD: "Lawyer@301884",
     GOOGLE_CALENDAR_EMAIL: "mahmoud.legal@gmail.com",
     
