@@ -20,6 +20,9 @@
     <!-- CSS -->
     <link rel="stylesheet" href="css/style.css">
     
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- PWA Script -->
     <script>
         if ('serviceWorker' in navigator) {
@@ -69,6 +72,10 @@
                     </div>
                 </div>
                 <div class="user-section">
+                    <div class="connection-status" id="connectionStatus">
+                        <i class="fas fa-wifi"></i>
+                        <span>متصل</span>
+                    </div>
                     <span class="user-name">المحامي/محمود</span>
                     <button onclick="logout()" class="logout-btn gold-btn">تسجيل خروج</button>
                 </div>
@@ -77,61 +84,179 @@
 
         <!-- Tabs Navigation -->
         <nav class="tabs-nav">
-            <button class="tab-btn active" onclick="showTab('casesTab')">
-                <span>📋</span> إدارة القضايا
+            <button class="tab-btn active" onclick="showTab('dashboardTab')">
+                <i class="fas fa-home"></i> الرئيسية
+            </button>
+            <button class="tab-btn" onclick="showTab('casesTab')">
+                <i class="fas fa-folder"></i> إدارة القضايا
             </button>
             <button class="tab-btn" onclick="showTab('sessionsTab')">
-                <span>📅</span> إدارة الجلسات
+                <i class="fas fa-calendar-alt"></i> إدارة الجلسات
             </button>
             <button class="tab-btn" onclick="showTab('reportsTab')">
-                <span>🔍</span> البحث والتقارير
+                <i class="fas fa-chart-bar"></i> التقارير
             </button>
         </nav>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Tab 1: Cases Management -->
-            <div id="casesTab" class="tab-content active">
-                <!-- Cases Tab Content will be loaded here -->
+            <!-- Tab 1: Dashboard -->
+            <div id="dashboardTab" class="tab-content active">
+                <div class="dashboard-container">
+                    <div class="stats-cards">
+                        <div class="stat-card glass-effect">
+                            <div class="stat-icon" style="background: var(--gold);">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="totalCases">0</h3>
+                                <p>إجمالي القضايا</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card glass-effect">
+                            <div class="stat-icon" style="background: #4CAF50;">
+                                <i class="fas fa-calendar-check"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="todaySessions">0</h3>
+                                <p>جلسات اليوم</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card glass-effect">
+                            <div class="stat-icon" style="background: #FF9800;">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="pendingCases">0</h3>
+                                <p>قضايا معلقة</p>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card glass-effect">
+                            <div class="stat-icon" style="background: #F44336;">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <h3 id="urgentCases">0</h3>
+                                <p>قضايا عاجلة</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-content">
+                        <div class="card glass-effect">
+                            <div class="card-header">
+                                <h3><i class="fas fa-clock"></i> الجلسات القادمة</h3>
+                                <button class="btn-small gold-btn" onclick="showTab('sessionsTab')">
+                                    عرض الكل
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div id="upcomingSessionsList">
+                                    <p class="no-data">جارٍ تحميل الجلسات...</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card glass-effect">
+                            <div class="card-header">
+                                <h3><i class="fas fa-bell"></i> التذكيرات</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="remindersList">
+                                    <div class="reminder-item">
+                                        <i class="fas fa-info-circle" style="color: var(--gold);"></i>
+                                        <span>مرحباً بك في نظام إدارة القضايا</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Tab 2: Sessions Management -->
+            <!-- Tab 2: Cases Management -->
+            <div id="casesTab" class="tab-content">
+                <!-- سيتم تحميله ديناميكياً -->
+            </div>
+
+            <!-- Tab 3: Sessions Management -->
             <div id="sessionsTab" class="tab-content">
-                <!-- Sessions Tab Content will be loaded here -->
+                <!-- سيتم تحميله ديناميكياً -->
             </div>
 
-            <!-- Tab 3: Reports -->
+            <!-- Tab 4: Reports -->
             <div id="reportsTab" class="tab-content">
-                <!-- Reports Tab Content will be loaded here -->
+                <!-- سيتم تحميله ديناميكياً -->
             </div>
         </main>
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p class="gold-text">© 2024 نظام إدارة القضايا القانوني - النسخة 1.0</p>
+            <p class="gold-text">© 2024 نظام إدارة القضايا القانوني - النسخة 2.0</p>
             <div class="footer-links">
-                <button onclick="exportData()" class="footer-link gold-text">تصدير البيانات</button>
-                <button onclick="printReport()" class="footer-link gold-text">طباعة تقرير</button>
-                <button onclick="clearCache()" class="footer-link gold-text">مسح البيانات</button>
+                <button onclick="exportData()" class="footer-link gold-text">
+                    <i class="fas fa-download"></i> تصدير البيانات
+                </button>
+                <button onclick="syncData()" class="footer-link gold-text">
+                    <i class="fas fa-sync"></i> مزامنة
+                </button>
+                <button onclick="clearLocalData()" class="footer-link gold-text">
+                    <i class="fas fa-trash"></i> مسح البيانات المحلية
+                </button>
             </div>
         </footer>
+    </div>
+
+    <!-- Modal for Case Details -->
+    <div id="caseModal" class="modal">
+        <div class="modal-content glass-effect">
+            <div class="modal-header">
+                <h3 class="gold-text">تفاصيل القضية</h3>
+                <button class="close-btn" onclick="closeModal('caseModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="caseModalBody">
+                <!-- سيتم تعبئته ديناميكياً -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Session Details -->
+    <div id="sessionModal" class="modal">
+        <div class="modal-content glass-effect">
+            <div class="modal-header">
+                <h3 class="gold-text">تفاصيل الجلسة</h3>
+                <button class="close-btn" onclick="closeModal('sessionModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="sessionModalBody">
+                <!-- سيتم تعبئته ديناميكياً -->
+            </div>
+        </div>
     </div>
 
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+        <p>جارٍ التحميل...</p>
+    </div>
+
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
+    <script src="js/main.js"></script>
     <script src="js/cases.js"></script>
     <script src="js/sessions.js"></script>
     <script src="js/reports.js"></script>
-    <script src="js/main.js"></script>
     
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment-with-locales.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.40/moment-timezone-with-data.min.js"></script>
 </body>
 </html>
