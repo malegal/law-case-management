@@ -1,5 +1,49 @@
 // Database Connection and Operations with Supabase
-class Database {
+class Database { 
+    // أضف هذه الدوال إلى class Database:
+
+async getUpcomingSessions(days = 7) {
+    const sessions = await this.getSessions();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + days);
+    
+    return sessions.filter(session => {
+        const sessionDate = new Date(session.sessionDate);
+        return sessionDate >= today && sessionDate <= futureDate;
+    }).sort((a, b) => new Date(a.sessionDate) - new Date(b.sessionDate));
+}
+
+async searchSessions(query, filters = {}) {
+    const sessions = await this.getSessions();
+    
+    return sessions.filter(session => {
+        // Text search
+        const searchText = query.toLowerCase();
+        const textMatch = !searchText || 
+            (session.caseCode && session.caseCode.toLowerCase().includes(searchText)) ||
+            (session.clientName && session.clientName.toLowerCase().includes(searchText)) ||
+            (session.caseNumber && session.caseNumber.toLowerCase().includes(searchText));
+        
+        // Filter by date
+        let dateMatch = true;
+        if (filters.dateFrom) {
+            const sessionDate = new Date(session.sessionDate);
+            const filterDate = new Date(filters.dateFrom);
+            dateMatch = sessionDate >= filterDate;
+        }
+        
+        // Filter by court
+        const courtMatch = !filters.court || session.court === filters.court;
+        
+        // Filter by session type
+        const typeMatch = !filters.sessionType || session.sessionType === filters.sessionType;
+        
+        return textMatch && dateMatch && courtMatch && typeMatch;
+    });
+}
     constructor() {
         this.supabaseUrl = 'https://dkknnwtdtkjtspfcfcij.supabase.co';
         this.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRra25ud3RkdGtqdHNwZmNmY2lqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc4ODkyODAsImV4cCI6MjA4MzQ2NTI4MH0.jwKmKu5hUE6pfFM8BCy-CF0R9h4RkXbhR50Vau1Q7qw';
