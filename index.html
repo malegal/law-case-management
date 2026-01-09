@@ -35,19 +35,27 @@
                     });
             });
         }
+        
+        // Detect PWA install
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBtn').style.display = 'block';
+        });
     </script>
 </head>
 <body>
     <!-- Login Screen -->
     <div id="loginScreen" class="login-screen">
-        <div class="login-container glass-effect">
+        <div class="login-container gold-frame">
             <div class="logo">
-                <div class="logo-icon">⚖️</div>
-                <h1 class="gold-text">نظام إدارة القضايا</h1>
+                <div class="logo-icon gold-texture">⚖️</div>
+                <h1 class="gold-shiny">نظام إدارة القضايا</h1>
             </div>
             <div class="login-form">
-                <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور" class="glass-input">
-                <button onclick="checkPassword()" class="gold-btn">دخول</button>
+                <input type="password" id="passwordInput" placeholder="أدخل كلمة المرور" class="gold-input">
+                <button onclick="checkPassword()" class="gold-shiny-btn">دخول</button>
                 <div id="loginError" class="error-message"></div>
             </div>
             <div class="login-footer">
@@ -56,19 +64,19 @@
         </div>
     </div>
 
-    <!-- Main App (Hidden until login) -->
+    <!-- Main App -->
     <div id="app" class="app-container" style="display: none;">
         <!-- Header -->
-        <header class="app-header">
+        <header class="app-header gold-frame">
             <div class="header-content">
                 <div class="logo-section">
                     <div class="logo">
-                        <span class="logo-icon">⚖️</span>
-                        <h1 class="gold-text">نظام إدارة القضايا</h1>
+                        <span class="logo-icon gold-texture">⚖️</span>
+                        <h1 class="gold-shiny">نظام إدارة القضايا</h1>
                     </div>
                     <div class="date-time">
-                        <span id="currentDate" class="gold-text"></span>
-                        <span id="currentTime" class="gold-text"></span>
+                        <span id="currentDate" class="gold-shiny"></span>
+                        <span id="currentTime" class="gold-shiny"></span>
                     </div>
                 </div>
                 <div class="user-section">
@@ -76,24 +84,27 @@
                         <i class="fas fa-wifi"></i>
                         <span>متصل</span>
                     </div>
-                    <span class="user-name">المحامي/محمود</span>
-                    <button onclick="logout()" class="logout-btn gold-btn">تسجيل خروج</button>
+                    <span class="user-name gold-shiny">المحامي/محمود</span>
+                    <button onclick="logout()" class="logout-btn gold-shiny-btn">تسجيل خروج</button>
+                    <button id="installBtn" onclick="installPWA()" class="install-btn gold-shiny-btn" style="display: none;">
+                        <i class="fas fa-download"></i> تثبيت التطبيق
+                    </button>
                 </div>
             </div>
         </header>
 
         <!-- Tabs Navigation -->
-        <nav class="tabs-nav">
-            <button class="tab-btn active" onclick="showTab('dashboardTab')">
+        <nav class="tabs-nav gold-frame">
+            <button class="tab-btn active gold-shiny-btn" onclick="showTab('dashboardTab')">
                 <i class="fas fa-home"></i> الرئيسية
             </button>
-            <button class="tab-btn" onclick="showTab('casesTab')">
+            <button class="tab-btn gold-shiny-btn" onclick="showTab('casesTab')">
                 <i class="fas fa-folder"></i> إدارة القضايا
             </button>
-            <button class="tab-btn" onclick="showTab('sessionsTab')">
+            <button class="tab-btn gold-shiny-btn" onclick="showTab('sessionsTab')">
                 <i class="fas fa-calendar-alt"></i> إدارة الجلسات
             </button>
-            <button class="tab-btn" onclick="showTab('reportsTab')">
+            <button class="tab-btn gold-shiny-btn" onclick="showTab('reportsTab')">
                 <i class="fas fa-chart-bar"></i> التقارير
             </button>
         </nav>
@@ -104,70 +115,70 @@
             <div id="dashboardTab" class="tab-content active">
                 <div class="dashboard-container">
                     <div class="stats-cards">
-                        <div class="stat-card glass-effect">
-                            <div class="stat-icon" style="background: var(--gold);">
+                        <div class="stat-card gold-frame">
+                            <div class="stat-icon gold-texture">
                                 <i class="fas fa-folder-open"></i>
                             </div>
                             <div class="stat-info">
                                 <h3 id="totalCases">0</h3>
-                                <p>إجمالي القضايا</p>
+                                <p class="gold-shiny">إجمالي القضايا</p>
                             </div>
                         </div>
                         
-                        <div class="stat-card glass-effect">
-                            <div class="stat-icon" style="background: #4CAF50;">
+                        <div class="stat-card gold-frame">
+                            <div class="stat-icon gold-texture">
                                 <i class="fas fa-calendar-check"></i>
                             </div>
                             <div class="stat-info">
                                 <h3 id="todaySessions">0</h3>
-                                <p>جلسات اليوم</p>
+                                <p class="gold-shiny">جلسات اليوم</p>
                             </div>
                         </div>
                         
-                        <div class="stat-card glass-effect">
-                            <div class="stat-icon" style="background: #FF9800;">
+                        <div class="stat-card gold-frame">
+                            <div class="stat-icon gold-texture">
                                 <i class="fas fa-clock"></i>
                             </div>
                             <div class="stat-info">
                                 <h3 id="pendingCases">0</h3>
-                                <p>قضايا معلقة</p>
+                                <p class="gold-shiny">قضايا معلقة</p>
                             </div>
                         </div>
                         
-                        <div class="stat-card glass-effect">
-                            <div class="stat-icon" style="background: #F44336;">
+                        <div class="stat-card gold-frame">
+                            <div class="stat-icon gold-texture">
                                 <i class="fas fa-exclamation-circle"></i>
                             </div>
                             <div class="stat-info">
                                 <h3 id="urgentCases">0</h3>
-                                <p>قضايا عاجلة</p>
+                                <p class="gold-shiny">قضايا عاجلة</p>
                             </div>
                         </div>
                     </div>
                     
                     <div class="dashboard-content">
-                        <div class="card glass-effect">
+                        <div class="card gold-frame">
                             <div class="card-header">
-                                <h3><i class="fas fa-clock"></i> الجلسات القادمة</h3>
-                                <button class="btn-small gold-btn" onclick="showTab('sessionsTab')">
+                                <h3 class="gold-shiny"><i class="fas fa-clock"></i> الجلسات القادمة</h3>
+                                <button class="btn-small gold-shiny-btn" onclick="showTab('sessionsTab')">
                                     عرض الكل
                                 </button>
                             </div>
                             <div class="card-body">
                                 <div id="upcomingSessionsList">
-                                    <p class="no-data">جارٍ تحميل الجلسات...</p>
+                                    <p class="loading-text">جارٍ تحميل الجلسات...</p>
                                 </div>
                             </div>
                         </div>
                         
-                        <div class="card glass-effect">
+                        <div class="card gold-frame">
                             <div class="card-header">
-                                <h3><i class="fas fa-bell"></i> التذكيرات</h3>
+                                <h3 class="gold-shiny"><i class="fas fa-bell"></i> التذكيرات</h3>
                             </div>
                             <div class="card-body">
                                 <div id="remindersList">
                                     <div class="reminder-item">
-                                        <i class="fas fa-info-circle" style="color: var(--gold);"></i>
+                                        <i class="fas fa-info-circle gold-shiny"></i>
                                         <span>مرحباً بك في نظام إدارة القضايا</span>
                                     </div>
                                 </div>
@@ -194,45 +205,40 @@
         </main>
 
         <!-- Footer -->
-        <footer class="app-footer">
-            <p class="gold-text">© 2024 نظام إدارة القضايا القانوني - النسخة 2.0</p>
+        <footer class="app-footer gold-frame">
+            <p class="gold-shiny">© 2024 نظام إدارة القضايا القانوني - النسخة الذهبية</p>
             <div class="footer-links">
-                <button onclick="exportData()" class="footer-link gold-text">
+                <button onclick="exportData()" class="footer-link gold-shiny">
                     <i class="fas fa-download"></i> تصدير البيانات
                 </button>
-                <button onclick="syncData()" class="footer-link gold-text">
+                <button onclick="syncData()" class="footer-link gold-shiny">
                     <i class="fas fa-sync"></i> مزامنة
                 </button>
-                <button onclick="clearLocalData()" class="footer-link gold-text">
-                    <i class="fas fa-trash"></i> مسح البيانات المحلية
+                <button onclick="printReport()" class="footer-link gold-shiny">
+                    <i class="fas fa-print"></i> طباعة تقرير
                 </button>
             </div>
         </footer>
     </div>
 
-    <!-- Modal for Case Details -->
+    <!-- Modals -->
     <div id="caseModal" class="modal">
-        <div class="modal-content glass-effect">
+        <div class="modal-content gold-frame">
             <div class="modal-header">
-                <h3 class="gold-text">تفاصيل القضية</h3>
-                <button class="close-btn" onclick="closeModal('caseModal')">&times;</button>
+                <h3 class="gold-shiny">تفاصيل القضية</h3>
+                <button class="close-btn gold-shiny" onclick="closeModal('caseModal')">&times;</button>
             </div>
-            <div class="modal-body" id="caseModalBody">
-                <!-- سيتم تعبئته ديناميكياً -->
-            </div>
+            <div class="modal-body" id="caseModalBody"></div>
         </div>
     </div>
 
-    <!-- Modal for Session Details -->
     <div id="sessionModal" class="modal">
-        <div class="modal-content glass-effect">
+        <div class="modal-content gold-frame">
             <div class="modal-header">
-                <h3 class="gold-text">تفاصيل الجلسة</h3>
-                <button class="close-btn" onclick="closeModal('sessionModal')">&times;</button>
+                <h3 class="gold-shiny">تفاصيل الجلسة</h3>
+                <button class="close-btn gold-shiny" onclick="closeModal('sessionModal')">&times;</button>
             </div>
-            <div class="modal-body" id="sessionModalBody">
-                <!-- سيتم تعبئته ديناميكياً -->
-            </div>
+            <div class="modal-body" id="sessionModalBody"></div>
         </div>
     </div>
 
@@ -241,8 +247,8 @@
 
     <!-- Loading Spinner -->
     <div id="loadingSpinner" class="loading-spinner" style="display: none;">
-        <div class="spinner"></div>
-        <p>جارٍ التحميل...</p>
+        <div class="spinner gold-texture"></div>
+        <p class="gold-shiny">جارٍ التحميل...</p>
     </div>
 
     <!-- Scripts -->
@@ -250,9 +256,6 @@
     <script src="js/config.js"></script>
     <script src="js/database.js"></script>
     <script src="js/main.js"></script>
-    <script src="js/cases.js"></script>
-    <script src="js/sessions.js"></script>
-    <script src="js/reports.js"></script>
     
     <!-- External Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
