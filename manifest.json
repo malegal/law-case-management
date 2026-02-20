@@ -1,86 +1,23 @@
 {
-  "name": "نظام إدارة القضايا الذهبي",
-  "short_name": "القضايا الذهبي",
-  "description": "نظام إدارة القضايا والمحاكمات القانونية - النسخة الذهبية",
-  "lang": "ar",
-  "dir": "rtl",
-  "theme_color": "#D4AF37",
-  "background_color": "#000000",
-  "display": "standalone",
-  "orientation": "portrait",
+  "name": " إدارة القضايا مكتب محمود عبد الحميد",
+  "short_name": "ادارة القضايا",
+  "description": "نظام إدارة القضايا للمحامي محمود عبد الحميد",
+  "start_url": "admin.html",
   "scope": "/",
-  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#bf953f",
+  
   "icons": [
     {
-      "src": "assets/icon-72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "assets/icon-96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "assets/icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
-    {
-      "src": "assets/icon-144.png",
-      "sizes": "144x144",
-      "type": "image/png"
-    },
-    {
-      "src": "assets/icon-192.png",
+      "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "assets/icon-384.png",
-      "sizes": "384x384",
       "type": "image/png"
     },
     {
-      "src": "assets/icon-512.png",
+      "src": "logo.png",
       "sizes": "512x512",
       "type": "image/png"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "assets/screenshot1.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "الصفحة الرئيسية"
-    }
-  ],
-  "categories": ["business", "productivity", "utilities"],
-  "shortcuts": [
-    {
-      "name": "إضافة قضية جديدة",
-      "short_name": "قضية جديدة",
-      "description": "إضافة قضية قانونية جديدة",
-      "url": "/?newcase=1",
-      "icons": [{ "src": "assets/icon-96.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "إدارة الجلسات",
-      "short_name": "الجلسات",
-      "description": "إدارة جلسات المحكمة",
-      "url": "/?sessions=1",
-      "icons": [{ "src": "assets/icon-96.png", "sizes": "96x96" }]
-    },
-    {
-      "name": "الجلسات القادمة",
-      "short_name": "جلسات الأسبوع",
-      "description": "عرض جلسات هذا الأسبوع",
-      "url": "/?week=1",
-      "icons": [{ "src": "assets/icon-96.png", "sizes": "96x96" }]
     }
   ]
 }
