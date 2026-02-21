@@ -10,7 +10,8 @@ const assets = [
   'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700;900&family=Tajawal:wght@300;400;500;700;900&display=swap',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://cdn.jsdelivr.net/npm/sweetalert2@11',
-  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+  'https://unpkg.com/dexie@3.2.3/dist/dexie.js'
 ];
 
 self.addEventListener('install', e => {
@@ -27,7 +28,15 @@ self.addEventListener('fetch', e => {
   }
 
   e.respondWith(
-    caches.match(e.request).then(res => res || fetch(e.request))
+    caches.open(cacheName).then(cache => {
+      return cache.match(e.request).then(cachedResponse => {
+        const fetchPromise = fetch(e.request).then(networkResponse => {
+          cache.put(e.request, networkResponse.clone());
+          return networkResponse;
+        });
+        return cachedResponse || fetchPromise;
+      });
+    })
   );
 });
 
