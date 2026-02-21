@@ -1,4 +1,4 @@
-const cacheName = 'mahmoud-law-v3';
+const cacheName = 'mahmoud-law-v4'; // غيّر الرقم مع كل تحديث
 const assets = [
   'index.html',
   'logo.png',
@@ -14,37 +14,57 @@ const assets = [
   'https://unpkg.com/dexie@3.2.3/dist/dexie.js'
 ];
 
+// تثبيت الـ SW وتخزين الملفات
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(cacheName).then(cache => cache.addAll(assets))
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('fetch', e => {
-  // تجاهل طلبات Supabase وطلبات POST (البيانات الديناميكية)
-  if (e.request.url.includes('supabase.co') || e.request.method !== 'GET') {
-    return;
-  }
-
-  e.respondWith(
-    caches.open(cacheName).then(cache => {
-      return cache.match(e.request).then(cachedResponse => {
-        const fetchPromise = fetch(e.request).then(networkResponse => {
-          cache.put(e.request, networkResponse.clone());
-          return networkResponse;
-        });
-        return cachedResponse || fetchPromise;
-      });
-    })
+    caches.open(cacheName)
+      .then(cache => cache.addAll(assets))
+      .then(() => self.skipWaiting())
   );
 });
 
+// تفعيل الـ SW وتنظيف الكاش القديم
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys => Promise.all(
       keys.filter(k => k !== cacheName).map(k => caches.delete(k))
-    ))
+    )).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+// استراتيجية fetch ذكية
+self.addEventListener('fetch', e => {
+  // تجاهل طلبات Supabase وطلبات POST
+  if (e.request.url.includes('supabase.co') || e.request.method !== 'GET') return;
+
+  e.respondWith(
+    caches.match(e.request).then(cachedResponse => {
+      // إذا وجدنا الملف في الكاش، نعيده فوراً
+      if (cachedResponse) {
+        // ثم نحدث الكاش في الخلفية (اختياري)
+        fetch(e.request).then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(cacheName).then(cache => cache.put(e.request, networkResponse));
+          }
+        }).catch(() => {});
+        return cachedResponse;
+      }
+
+      // إذا لم يكن في الكاش، نحاول تحميله من الشبكة
+      return fetch(e.request).then(networkResponse => {
+        // نخزن النسخة الجديدة في الكاش
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(cacheName).then(cache => cache.put(e.request, responseToCache));
+        }
+        return networkResponse;
+      }).catch(() => {
+        // إذا فشل كل شيء (لا إنترنت ولا كاش)، نعيد صفحة index.html للملاحة
+        if (e.request.headers.get('accept')?.includes('text/html')) {
+          return caches.match('index.html');
+        }
+        // يمكن إضافة fallback لصور أو أي موارد أخرى إذا أردت
+      });
+    })
+  );
 });
