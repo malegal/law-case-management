@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="manifest.json">
+
     <script>
       // PWA Installation Handler (محسن)
       let deferredPrompt;
@@ -46,15 +47,11 @@
           navigator.serviceWorker.register('sw.js')
             .then(reg => {
               console.log('Service Worker registered:', reg);
-
-              // Check for updates
               reg.addEventListener('updatefound', () => {
                 const newWorker = reg.installing;
                 console.log('New service worker found:', newWorker);
-
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New version available
                     console.log('New version available. Please refresh.');
                     if (confirm('تحديث جديد متاح. هل تريد تحديث التطبيق الآن؟')) {
                       window.location.reload();
@@ -64,8 +61,6 @@
               });
             })
             .catch(err => console.error('Service Worker registration failed:', err));
-
-          // Optional: listen for controller change (new SW activated)
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             console.log('New service worker activated');
           });
@@ -81,6 +76,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Dexie.js for IndexedDB -->
+    <script src="https://unpkg.com/dexie@3.2.3/dist/dexie.js"></script>
 
     <style>
         :root {
@@ -154,9 +151,26 @@
         .log-ip-display { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 5px; border: 1px solid rgba(191,149,63,0.3); }
         .log-details { font-size: 0.85rem; color: #ccc; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; margin-top: 10px; border: 1px solid rgba(191,149,63,0.2); white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow-y: auto; }
 
+        #syncBtn {
+            margin-right: 10px;
+            position: relative;
+        }
+        #syncBtn .badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.7rem;
+        }
+
         @media (max-width: 768px) {
             .admin-toolbar h1 { font-size: 0.9rem !important; }
             .nav-tabs .nav-link { font-size: 0.75rem; padding: 8px 12px; }
+            #syncBtn span { display: none; }
+            #syncBtn i { margin: 0; }
         }
     </style>
 </head>
@@ -167,7 +181,13 @@
         <i class="bi bi-shield-check text-warning fs-5"></i>
         <h1 class="gold-text fs-5 fw-bold mb-0">نظام إدارة القضايا | محمود عبد الحميد المحامي</h1>
     </div>
-    <button class="gold-btn btn btn-sm px-3" onclick="installPWA()" id="installBtn" style="display:none">تثبيت التطبيق</button>
+    <div>
+        <button class="btn btn-outline-warning btn-sm px-3 me-2" onclick="syncPendingOperations()" id="syncBtn" title="مزامنة البيانات">
+            <i class="bi bi-arrow-repeat"></i> <span>مزامنة</span>
+            <span class="badge" id="pendingBadge" style="display:none;">0</span>
+        </button>
+        <button class="gold-btn btn btn-sm px-3" onclick="installPWA()" id="installBtn" style="display:none">تثبيت التطبيق</button>
+    </div>
 </div>
 
 <div id="loginPage" class="container mt-5" style="max-width:450px">  
@@ -424,17 +444,79 @@
     let editingCaseId = null;
     let editingSessionId = null;
     let currentSecurityLogId = null;
-    // تم إزالة let deferredPrompt; لأنه معرف بالفعل في الأعلى
 
-    // دالة مساعدة للحصول على أو إنشاء كائن Modal (هذه هي النقطة المحورية للحل)
-    function getModalInstance(id) {
-        const el = document.getElementById(id);
-        let modal = bootstrap.Modal.getInstance(el);
-        if (!modal) {
-            modal = new bootstrap.Modal(el);
+    // ========== إعداد Dexie (IndexedDB) للعمل دون اتصال ==========
+    const db_local = new Dexie('MahmoudLawDB');
+    db_local.version(1).stores({
+        cases: 'id, case_number, case_year, client_name, client_phone, case_code',
+        sessions: 'id, case_id, session_date, case_status, decision',
+        pendingOperations: '++id, operation, data, timestamp'
+    });
+
+    // دالة لتحديث عداد العمليات المعلقة
+    async function updatePendingBadge() {
+        const count = await db_local.pendingOperations.count();
+        const badge = document.getElementById('pendingBadge');
+        if (count > 0) {
+            badge.innerText = count;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
         }
-        return modal;
     }
+
+    // دالة المزامنة
+    window.syncPendingOperations = async function() {
+        if (!navigator.onLine) {
+            Swal.fire("تنبيه", "لا يوجد اتصال بالإنترنت، سيتم المزامنة لاحقاً", "info");
+            return;
+        }
+        const pending = await db_local.pendingOperations.toArray();
+        if (pending.length === 0) {
+            Swal.fire("مزامنة", "لا توجد عمليات معلقة", "info");
+            return;
+        }
+        Swal.fire({
+            title: 'جاري المزامنة...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+        let successCount = 0;
+        for (let op of pending) {
+            try {
+                if (op.operation === 'insert_case') {
+                    await db.from('cases').insert([op.data]);
+                } else if (op.operation === 'update_case') {
+                    await db.from('cases').update(op.data.id, op.data);
+                } else if (op.operation === 'delete_case') {
+                    await db.from('sessions').delete().eq('case_id', op.data.id);
+                    await db.from('cases').delete().eq('id', op.data.id);
+                } else if (op.operation === 'insert_session') {
+                    await db.from('sessions').insert([op.data]);
+                } else if (op.operation === 'update_session') {
+                    await db.from('sessions').update(op.data.id, op.data);
+                } else if (op.operation === 'delete_session') {
+                    await db.from('sessions').delete().eq('id', op.data.id);
+                }
+                await db_local.pendingOperations.delete(op.id);
+                successCount++;
+            } catch (err) {
+                console.error('Sync failed for operation', op, err);
+            }
+        }
+        Swal.close();
+        Swal.fire("تم", `تمت مزامنة ${successCount} من أصل ${pending.length} عملية بنجاح`, "success");
+        updatePendingBadge();
+        // إعادة تحميل البيانات المعروضة
+        loadStats();
+        loadUpcoming('week');
+    };
+
+    // استماع لعودة الاتصال
+    window.addEventListener('online', () => {
+        console.log('Connection restored, syncing...');
+        syncPendingOperations();
+    });
 
     // ========== تسجيل الدخول ==========
     function login() {
@@ -444,35 +526,56 @@
             loadStats();
             loadUpcoming('week');
             loadSecurityLogs();
+            updatePendingBadge(); // تحديث الشارة عند الدخول
         } else {
             Swal.fire("خطأ", "كلمة المرور غير صحيحة", "error");
         }
     }
     window.login = login;
 
-    // ========== الإحصائيات ==========
+    // ========== الإحصائيات (مع دعم عدم الاتصال) ==========
     async function loadStats() {
         try {
-            const { count: cCount } = await db.from('cases').select('*', { count: 'exact', head: true });
-            document.getElementById('stat-cases').innerText = cCount || 0;
-
-            const { count: sCount } = await db.from('sessions').select('*', { count: 'exact', head: true });
-            document.getElementById('stat-total-s').innerText = sCount || 0;
-
-            const { data: clients } = await db.from('cases').select('client_name');
-            const unique = new Set(clients?.map(c => c.client_name)).size;
-            document.getElementById('stat-clients').innerText = unique || 0;
-
-            const now = new Date();
-            const today = now.toISOString().split('T')[0];
-            const nextWeek = new Date(now.setDate(now.getDate() + 7)).toISOString().split('T')[0];
+            // محاولة جلب العدد من supabase
+            const { count: cCount, error: cErr } = await db.from('cases').select('*', { count: 'exact', head: true });
+            const { count: sCount, error: sErr } = await db.from('sessions').select('*', { count: 'exact', head: true });
+            const { data: clients, error: clErr } = await db.from('cases').select('client_name');
+            if (!cErr && !sErr && !clErr) {
+                document.getElementById('stat-cases').innerText = cCount || 0;
+                document.getElementById('stat-total-s').innerText = sCount || 0;
+                const unique = new Set(clients?.map(c => c.client_name)).size;
+                document.getElementById('stat-clients').innerText = unique || 0;
+                // تحديث التخزين المحلي
+                if (cCount !== undefined) await db_local.cases.count(); // لا نحتاج للتخزين هنا
+            } else {
+                throw new Error('offline');
+            }
+        } catch (e) {
+            // إذا كان دون اتصال، نقرأ من IndexedDB
+            const localCases = await db_local.cases.toArray();
+            const localSessions = await db_local.sessions.toArray();
+            document.getElementById('stat-cases').innerText = localCases.length;
+            document.getElementById('stat-total-s').innerText = localSessions.length;
+            const unique = new Set(localCases.map(c => c.client_name)).size;
+            document.getElementById('stat-clients').innerText = unique;
+        }
+        // حساب الجلسات القادمة خلال 7 أيام
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const nextWeek = new Date(now.setDate(now.getDate() + 7)).toISOString().split('T')[0];
+        try {
             const { count: upCount } = await db.from('sessions').select('*', { count: 'exact', head: true }).gte('session_date', today).lte('session_date', nextWeek);
             document.getElementById('stat-sessions').innerText = upCount || 0;
-        } catch (e) { console.error(e); }
+        } catch {
+            // محلياً
+            const allSessions = await db_local.sessions.toArray();
+            const upcoming = allSessions.filter(s => s.session_date >= today && s.session_date <= nextWeek);
+            document.getElementById('stat-sessions').innerText = upcoming.length;
+        }
     }
     window.loadStats = loadStats;
 
-    // ========== الجلسات القادمة ==========
+    // ========== الجلسات القادمة (معدلة لدعم عدم الاتصال) ==========
     async function loadUpcoming(range, btn) {
         if (btn) {
             document.querySelectorAll('#sessions .btn-group .btn').forEach(b => b.classList.remove('active'));
@@ -486,16 +589,25 @@
         else end.setMonth(now.getMonth() + 1);
         const endStr = end.toISOString().split('T')[0];
 
-        const { data: sessions, error } = await db.from('sessions')
-            .select('*')
-            .gte('session_date', start)
-            .lte('session_date', endStr)
-            .order('session_date', { ascending: true });
-
         const container = document.getElementById('upcomingSessions');
-        if (error) {
-            container.innerHTML = `<div class="text-red-400 text-center">خطأ في جلب البيانات</div>`;
-            return;
+        let sessions = [];
+        try {
+            const { data, error } = await db.from('sessions')
+                .select('*')
+                .gte('session_date', start)
+                .lte('session_date', endStr)
+                .order('session_date', { ascending: true });
+            if (error) throw error;
+            sessions = data || [];
+            // تخزين الجلسات محلياً
+            await db_local.sessions.bulkPut(sessions);
+        } catch {
+            // دون اتصال: اقرأ من IndexedDB
+            sessions = await db_local.sessions
+                .where('session_date')
+                .between(start, endStr, true, true)
+                .toArray();
+            sessions.sort((a,b) => a.session_date.localeCompare(b.session_date));
         }
 
         if (!sessions || sessions.length === 0) {
@@ -505,7 +617,14 @@
 
         let html = '';
         for (let s of sessions) {
-            const { data: caseData } = await db.from('cases').select('*').eq('id', s.case_id).single();
+            let caseData;
+            try {
+                const { data } = await db.from('cases').select('*').eq('id', s.case_id).single();
+                caseData = data;
+                if (caseData) await db_local.cases.put(caseData);
+            } catch {
+                caseData = await db_local.cases.get(s.case_id);
+            }
             if (caseData) {
                 html += `
                 <div class="session-card" onclick="openCaseDetails('${caseData.id}')">
@@ -526,6 +645,7 @@
     }
     window.loadUpcoming = loadUpcoming;
 
+    // دالة getStatusClass (بدون تغيير)
     function getStatusClass(status) {
         const map = {
             'جديدة': 'status-new',
@@ -538,13 +658,26 @@
         return map[status] || 'status-new';
     }
 
-    // ========== البحث عن القضايا لإضافتها للجلسات ==========
+    // ========== البحث عن القضايا لإضافتها للجلسات (معدل لدعم عدم الاتصال) ==========
     async function searchCasesForSession(q) {
         if (q.length < 2) {
             document.getElementById('caseSearchResults').style.display = 'none';
             return;
         }
-        const { data } = await db.from('cases').select('*').or(`client_name.ilike.%${q}%,case_number.ilike.%${q}%,case_code.ilike.%${q}%`).limit(5);
+        let data = [];
+        try {
+            const { data: d, error } = await db.from('cases').select('*').or(`client_name.ilike.%${q}%,case_number.ilike.%${q}%,case_code.ilike.%${q}%`).limit(5);
+            if (error) throw error;
+            data = d || [];
+            await db_local.cases.bulkPut(data);
+        } catch {
+            // بحث محلي
+            data = await db_local.cases.filter(c => 
+                (c.client_name && c.client_name.includes(q)) ||
+                (c.case_number && c.case_number.includes(q)) ||
+                (c.case_code && c.case_code.includes(q))
+            ).limit(5).toArray();
+        }
         const resDiv = document.getElementById('caseSearchResults');
         if (data && data.length > 0) {
             resDiv.innerHTML = data.map(c => `
@@ -562,8 +695,16 @@
     window.searchCasesForSession = searchCasesForSession;
 
     async function selectCaseForSession(id) {
-        const { data, error } = await db.from('cases').select('*').eq('id', id).single();
-        if (error || !data) return;
+        let data;
+        try {
+            const { data: d, error } = await db.from('cases').select('*').eq('id', id).single();
+            if (error) throw error;
+            data = d;
+            await db_local.cases.put(data);
+        } catch {
+            data = await db_local.cases.get(id);
+        }
+        if (!data) return;
         currentCaseId = data.id;
         document.getElementById('s_case_code').value = data.case_code || '';
         document.getElementById('s_case_number').value = data.case_number;
@@ -574,15 +715,24 @@
         document.getElementById('s_opponent').value = data.opponent_name || '';
         document.getElementById('s_client_role').value = data.client_role;
         
-        const { data: lastSession } = await db.from('sessions').select('case_status').eq('case_id', id).order('session_date', { ascending: false }).limit(1);
-        document.getElementById('s_case_status').value = (lastSession && lastSession.length > 0) ? lastSession[0].case_status : 'جديدة';
+        // جلب آخر حالة جلسة
+        let lastStatus = 'جديدة';
+        try {
+            const { data: lastSession } = await db.from('sessions').select('case_status').eq('case_id', id).order('session_date', { ascending: false }).limit(1);
+            if (lastSession && lastSession.length > 0) lastStatus = lastSession[0].case_status;
+        } catch {
+            const sessions = await db_local.sessions.where('case_id').equals(id).toArray();
+            sessions.sort((a,b) => new Date(b.session_date) - new Date(a.session_date));
+            if (sessions.length > 0) lastStatus = sessions[0].case_status;
+        }
+        document.getElementById('s_case_status').value = lastStatus;
         
         document.getElementById('caseSearchResults').style.display = 'none';
         document.getElementById('calendarBtn').disabled = false;
     }
     window.selectCaseForSession = selectCaseForSession;
 
-    // ========== حفظ الجلسة ==========
+    // ========== حفظ الجلسة (مع دعم عدم الاتصال) ==========
     async function saveSession() {
         if (!currentCaseId) return Swal.fire("تنبيه", "يجب اختيار قضية أولاً", "warning");
         if (!document.getElementById('s_date').value) return Swal.fire("تنبيه", "أدخل تاريخ الجلسة", "warning");
@@ -593,16 +743,31 @@
             decision: document.getElementById('s_decision').value,
             case_status: document.getElementById('s_case_status').value
         };
-        const { error } = await db.from('sessions').insert([sessionData]);
-        if (error) return Swal.fire("خطأ", error.message, "error");
-        Swal.fire("تم", "تم تسجيل الجلسة", "success");
+
+        try {
+            const { error } = await db.from('sessions').insert([sessionData]);
+            if (error) throw error;
+            Swal.fire("تم", "تم تسجيل الجلسة", "success");
+            // تخزين محلي
+            await db_local.sessions.put({ ...sessionData, id: 'temp_' + Date.now() }); // id مؤقت
+        } catch (err) {
+            // دون اتصال: أضف للعمليات المعلقة
+            await db_local.pendingOperations.add({
+                operation: 'insert_session',
+                data: sessionData,
+                timestamp: Date.now()
+            });
+            await db_local.sessions.put({ ...sessionData, id: 'temp_' + Date.now() }); // id مؤقت
+            Swal.fire("تنبيه", "تم حفظ الجلسة محلياً، وسيتم رفعها عند توفر الاتصال", "info");
+        }
         document.getElementById('s_decision').value = '';
         loadUpcoming('week');
         loadStats();
+        updatePendingBadge();
     }
     window.saveSession = saveSession;
 
-    // ========== إضافة إلى تقويم جوجل ==========
+    // ========== إضافة إلى تقويم جوجل (بدون تغيير) ==========
     function addToGoogleCalendar() {
         const startDate = document.getElementById('s_date').value;
         if (!startDate) return Swal.fire("تنبيه", "أدخل تاريخ الجلسة أولاً", "warning");
@@ -622,7 +787,7 @@
     }
     window.addToGoogleCalendar = addToGoogleCalendar;
 
-    // ========== توليد كود القضية ==========
+    // ========== توليد كود القضية (بدون تغيير) ==========
     async function generateCaseCode(caseYear) {
         const yearSuffix = caseYear.slice(-2);
         const { data: cases } = await db.from('cases').select('case_code').eq('case_year', caseYear);
@@ -643,7 +808,7 @@
         return `MA-${yearSuffix}-${newSerial}-${randomPart}`;
     }
 
-    // ========== حفظ القضية ==========
+    // ========== حفظ القضية (مع دعم عدم الاتصال) ==========
     document.getElementById('caseForm').onsubmit = async (e) => {
         e.preventDefault();
         const caseData = {
@@ -662,49 +827,74 @@
         };
         caseData.case_code = await generateCaseCode(caseData.case_year);
 
-        const { data, error } = await db.from('cases').insert([caseData]).select().single();
-        if (error) return Swal.fire("خطأ", error.message, "error");
-        Swal.fire({
-            title: "تم الحفظ بنجاح",
-            html: `<div class="text-center"><h4 class="mt-3">تم تسجيل القضية</h4><p class="case-code mt-2">${data.case_code}</p></div>`,
-            icon: "success"
-        });
+        try {
+            const { data, error } = await db.from('cases').insert([caseData]).select().single();
+            if (error) throw error;
+            Swal.fire({
+                title: "تم الحفظ بنجاح",
+                html: `<div class="text-center"><h4 class="mt-3">تم تسجيل القضية</h4><p class="case-code mt-2">${data.case_code}</p></div>`,
+                icon: "success"
+            });
+            await db_local.cases.put(data);
+        } catch (err) {
+            // دون اتصال: أضف للعمليات المعلقة
+            const tempId = 'temp_' + Date.now();
+            await db_local.pendingOperations.add({
+                operation: 'insert_case',
+                data: caseData,
+                timestamp: Date.now()
+            });
+            await db_local.cases.put({ ...caseData, id: tempId });
+            Swal.fire("تنبيه", "تم حفظ القضية محلياً، وسيتم رفعها عند توفر الاتصال", "info");
+        }
         e.target.reset();
         loadStats();
+        updatePendingBadge();
     };
 
-    // ========== البحث العام ==========
+    // ========== البحث العام (معدل لدعم عدم الاتصال) ==========
     async function searchCases() {
         const q = document.getElementById('searchInput').value;
         if (!q.trim()) return Swal.fire("تنبيه", "أدخل كلمة للبحث", "warning");
-        
+
         const ip = await getClientIP();
-        await db.from('security_logs').insert([{
-            phone: q,
-            ip_address: ip,
-            action_type: 'search_attempt',
-            is_success: false,
-            details: { query: q }
-        }]);
-
-        const { data, error } = await db.from('cases').select('*').or(`client_name.ilike.%${q}%,case_number.ilike.%${q}%,case_code.ilike.%${q}%,client_phone.ilike.%${q}%`);
-        const container = document.getElementById('searchResults');
-        if (error) return Swal.fire("خطأ", error.message, "error");
-
-        if (data && data.length > 0) {
+        let data = [];
+        try {
+            const { data: d, error } = await db.from('cases').select('*').or(`client_name.ilike.%${q}%,case_number.ilike.%${q}%,case_code.ilike.%${q}%,client_phone.ilike.%${q}%`);
+            if (error) throw error;
+            data = d || [];
             await db.from('security_logs').insert([{
-                phone: q,
-                ip_address: ip,
-                action_type: 'search_success',
-                is_success: true,
-                details: { query: q, results_count: data.length }
+                phone: q, ip_address: ip, action_type: 'search_success', is_success: true, details: { query: q, results_count: data.length }
             }]);
+            await db_local.cases.bulkPut(data);
+        } catch {
+            // بحث محلي
+            data = await db_local.cases.filter(c => 
+                (c.client_name && c.client_name.includes(q)) ||
+                (c.case_number && c.case_number.includes(q)) ||
+                (c.case_code && c.case_code.includes(q)) ||
+                (c.client_phone && c.client_phone.includes(q))
+            ).toArray();
+            await db_local.pendingOperations.add({
+                operation: 'search_attempt',
+                data: { query: q, ip },
+                timestamp: Date.now()
+            });
+        }
 
+        const container = document.getElementById('searchResults');
+        if (data && data.length > 0) {
+            // جلب آخر حالة لكل قضية
             for (let item of data) {
-                const { data: sessions } = await db.from('sessions').select('*').eq('case_id', item.id).order('session_date', { ascending: false }).limit(1);
-                item.last_status = sessions && sessions.length > 0 ? sessions[0].case_status : 'جديدة';
+                try {
+                    const { data: sessions } = await db.from('sessions').select('*').eq('case_id', item.id).order('session_date', { ascending: false }).limit(1);
+                    item.last_status = sessions && sessions.length > 0 ? sessions[0].case_status : 'جديدة';
+                } catch {
+                    const sessions = await db_local.sessions.where('case_id').equals(item.id).toArray();
+                    sessions.sort((a,b) => new Date(b.session_date) - new Date(a.session_date));
+                    item.last_status = sessions.length > 0 ? sessions[0].case_status : 'جديدة';
+                }
             }
-            
             container.innerHTML = data.map(c => `
                 <div class="case-card" onclick="openCaseDetails('${c.id}')">
                     <div class="d-flex justify-content-between">
@@ -735,19 +925,29 @@
         }
     }
 
-    // ========== البحث التاريخي ==========
+    // ========== البحث التاريخي (معدل لدعم عدم الاتصال) ==========
     async function searchByDateRange() {
         const from = document.getElementById('searchFrom').value;
         const to = document.getElementById('searchTo').value;
         if (!from || !to) return Swal.fire("تنبيه", "أدخل النطاق الزمني", "warning");
 
-        const { data: sessions, error } = await db.from('sessions')
-            .select('*')
-            .gte('session_date', from)
-            .lte('session_date', to)
-            .order('session_date', { ascending: false });
-
-        if (error) return Swal.fire("خطأ", error.message, "error");
+        let sessions = [];
+        try {
+            const { data: s, error } = await db.from('sessions')
+                .select('*')
+                .gte('session_date', from)
+                .lte('session_date', to)
+                .order('session_date', { ascending: false });
+            if (error) throw error;
+            sessions = s || [];
+            await db_local.sessions.bulkPut(sessions);
+        } catch {
+            sessions = await db_local.sessions
+                .where('session_date')
+                .between(from, to, true, true)
+                .toArray();
+            sessions.sort((a,b) => b.session_date.localeCompare(a.session_date));
+        }
 
         const container = document.getElementById('searchResults');
         if (!sessions || sessions.length === 0) {
@@ -757,7 +957,14 @@
 
         let html = '<h6 class="mb-3 gold-text">نتائج البحث التاريخي:</h6>';
         for (let s of sessions) {
-            const { data: c } = await db.from('cases').select('*').eq('id', s.case_id).single();
+            let c;
+            try {
+                const { data } = await db.from('cases').select('*').eq('id', s.case_id).single();
+                c = data;
+                if (c) await db_local.cases.put(c);
+            } catch {
+                c = await db_local.cases.get(s.case_id);
+            }
             if (c) {
                 html += `
                 <div class="session-card" onclick="openCaseDetails('${c.id}')">
@@ -774,13 +981,32 @@
     }
     window.searchByDateRange = searchByDateRange;
 
-    // ========== فتح تفاصيل القضية (مع أزرار التعديل الجديدة) ==========
+    // ========== فتح تفاصيل القضية (معدل لدعم عدم الاتصال) ==========
     async function openCaseDetails(id) {
-        const { data: c, error } = await db.from('cases').select('*').eq('id', id).single();
-        if (error || !c) return;
-        const { data: ss } = await db.from('sessions').select('*').eq('case_id', id).order('session_date', { ascending: false });
+        let c;
+        try {
+            const { data, error } = await db.from('cases').select('*').eq('id', id).single();
+            if (error) throw error;
+            c = data;
+            await db_local.cases.put(c);
+        } catch {
+            c = await db_local.cases.get(id);
+        }
+        if (!c) return;
+
+        let ss = [];
+        try {
+            const { data, error } = await db.from('sessions').select('*').eq('case_id', id).order('session_date', { ascending: false });
+            if (!error && data) {
+                ss = data;
+                await db_local.sessions.bulkPut(ss);
+            }
+        } catch {
+            ss = await db_local.sessions.where('case_id').equals(id).toArray();
+            ss.sort((a,b) => new Date(b.session_date) - new Date(a.session_date));
+        }
         currentCaseForPrint = { ...c, sessions: ss || [] };
-        
+
         let html = `
             <div class="p-2">
                 <h4 class="gold-text serif-font text-xl mb-3">${c.client_name}</h4>
@@ -799,7 +1025,6 @@
                             <div>
                                 <b>${new Date(s.session_date).toLocaleDateString('ar-EG')}:</b> ${s.decision || 'لا يوجد قرار'} (${s.case_status})
                             </div>
-                            <!-- زر تعديل الجلسة هنا -->
                             <button class="btn btn-sm btn-link text-warning p-0 ms-2" onclick="loadSessionForEdit('${s.id}')">
                                 <i class="bi bi-pencil-square fs-6"></i>
                             </button>
@@ -809,8 +1034,7 @@
             </div>
         `;
         document.getElementById('caseDetails').innerHTML = html;
-        
-        // وضع أزرار تعديل وحذف القضية في الفوتر
+
         document.getElementById('modalActionButtons').innerHTML = `
             <button class="btn btn-warning btn-sm" onclick="loadCaseForEdit('${c.id}')"><i class="bi bi-pencil"></i> تعديل القضية</button>
             <button class="btn btn-danger btn-sm ms-2" onclick="deleteCaseInModal('${c.id}')"><i class="bi bi-trash"></i> حذف</button>
@@ -820,14 +1044,19 @@
     }
     window.openCaseDetails = openCaseDetails;
 
-    // ========== دوال تعديل وحذف القضايا (تم الإصلاح) ==========
+    // ========== دوال تعديل وحذف القضايا (مع دعم عدم الاتصال) ==========
     async function loadCaseForEdit(id) {
         console.log('Loading case for edit:', id);
-        
-        // ✅ تم إضافة .select('*') لتصحيح الاستعلام
-        const { data } = await db.from('cases').select('*').eq('id', id).single();
+        let data;
+        try {
+            const { data: d } = await db.from('cases').select('*').eq('id', id).single();
+            data = d;
+            if (data) await db_local.cases.put(data);
+        } catch {
+            data = await db_local.cases.get(id);
+        }
         if (!data) return;
-        
+
         editingCaseId = id;
         document.getElementById('edit_client_name').value = data.client_name;
         document.getElementById('edit_client_phone').value = data.client_phone;
@@ -841,15 +1070,10 @@
         document.getElementById('edit_case_type').value = data.case_type || 'مدنية';
         document.getElementById('edit_case_subject').value = data.case_subject || '';
         document.getElementById('edit_notes').value = data.notes || '';
-        
-        // إغلاق مودال التفاصيل
-        const viewModalEl = document.getElementById('caseModal');
-        const viewModal = bootstrap.Modal.getInstance(viewModalEl);
-        if (viewModal) {
-            viewModal.hide();
-        }
 
-        // فتح مودال التعديل بعد تأخير بسيط
+        const viewModal = bootstrap.Modal.getInstance(document.getElementById('caseModal'));
+        if (viewModal) viewModal.hide();
+
         setTimeout(() => {
             const editModal = getModalInstance('editCaseModal');
             editModal.show();
@@ -872,55 +1096,74 @@
             case_subject: document.getElementById('edit_case_subject').value,
             notes: document.getElementById('edit_notes').value
         };
-        const { error } = await db.from('cases').update(updated).eq('id', editingCaseId);
-        if (error) return Swal.fire("خطأ", error.message, "error");
-        
-        // إغلاق مودال التعديل
+        try {
+            const { error } = await db.from('cases').update(updated).eq('id', editingCaseId);
+            if (error) throw error;
+            await db_local.cases.update(editingCaseId, updated);
+        } catch {
+            await db_local.pendingOperations.add({
+                operation: 'update_case',
+                data: { id: editingCaseId, ...updated },
+                timestamp: Date.now()
+            });
+            await db_local.cases.update(editingCaseId, updated);
+            Swal.fire("تنبيه", "تم حفظ التعديل محلياً، وسيتم رفعه عند توفر الاتصال", "info");
+        }
         const editModal = bootstrap.Modal.getInstance(document.getElementById('editCaseModal'));
         if (editModal) editModal.hide();
-        
         Swal.fire("تم", "تم تحديث القضية", "success");
-        searchCases(); 
+        searchCases();
+        updatePendingBadge();
     }
     window.updateCase = updateCase;
 
     async function deleteCaseInModal(id) {
         if (!confirm('هل أنت متأكد من حذف القضية وجميع جلساتها؟')) return;
-        await db.from('sessions').delete().eq('case_id', id);
-        await db.from('cases').delete().eq('id', id);
-        
+        try {
+            await db.from('sessions').delete().eq('case_id', id);
+            await db.from('cases').delete().eq('id', id);
+            await db_local.sessions.where('case_id').equals(id).delete();
+            await db_local.cases.delete(id);
+        } catch {
+            await db_local.pendingOperations.add({
+                operation: 'delete_case',
+                data: { id },
+                timestamp: Date.now()
+            });
+            await db_local.sessions.where('case_id').equals(id).delete();
+            await db_local.cases.delete(id);
+            Swal.fire("تنبيه", "تم حذف القضية محلياً، وسيتم رفع الحذف عند توفر الاتصال", "info");
+        }
         const viewModal = bootstrap.Modal.getInstance(document.getElementById('caseModal'));
         if (viewModal) viewModal.hide();
-        
         searchCases();
-        Swal.fire("تم", "تم الحذف", "success");
+        updatePendingBadge();
     }
     window.deleteCaseInModal = deleteCaseInModal;
 
-    // ========== دوال تعديل وحذف الجلسات (تم الإصلاح) ==========
+    // ========== دوال تعديل وحذف الجلسات (مع دعم عدم الاتصال) ==========
     async function loadSessionForEdit(id) {
         console.log('Loading session for edit:', id);
-
-        // ✅ تم إضافة .select('*') لتصحيح الاستعلام
-        const { data } = await db.from('sessions').select('*').eq('id', id).single();
+        let data;
+        try {
+            const { data: d } = await db.from('sessions').select('*').eq('id', id).single();
+            data = d;
+            if (data) await db_local.sessions.put(data);
+        } catch {
+            data = await db_local.sessions.get(id);
+        }
         if (!data) return;
-        
+
         editingSessionId = id;
-        
         const d = new Date(data.session_date);
         d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
         document.getElementById('edit_session_date').value = d.toISOString().slice(0, 16);
         document.getElementById('edit_session_case_status').value = data.case_status;
         document.getElementById('edit_decision').value = data.decision || '';
-        
-        // إغلاق مودال التفاصيل
-        const viewModalEl = document.getElementById('caseModal');
-        const viewModal = bootstrap.Modal.getInstance(viewModalEl);
-        if (viewModal) {
-            viewModal.hide();
-        }
-        
-        // فتح مودال التعديل بعد تأخير
+
+        const viewModal = bootstrap.Modal.getInstance(document.getElementById('caseModal'));
+        if (viewModal) viewModal.hide();
+
         setTimeout(() => {
             const editSessionModal = getModalInstance('editSessionModal');
             editSessionModal.show();
@@ -934,29 +1177,47 @@
             case_status: document.getElementById('edit_session_case_status').value,
             decision: document.getElementById('edit_decision').value
         };
-        await db.from('sessions').update(updated).eq('id', editingSessionId);
-        
+        try {
+            await db.from('sessions').update(updated).eq('id', editingSessionId);
+            await db_local.sessions.update(editingSessionId, updated);
+        } catch {
+            await db_local.pendingOperations.add({
+                operation: 'update_session',
+                data: { id: editingSessionId, ...updated },
+                timestamp: Date.now()
+            });
+            await db_local.sessions.update(editingSessionId, updated);
+            Swal.fire("تنبيه", "تم حفظ التعديل محلياً، وسيتم رفعه عند توفر الاتصال", "info");
+        }
         const editModal = bootstrap.Modal.getInstance(document.getElementById('editSessionModal'));
         if (editModal) editModal.hide();
-        
         loadUpcoming('week');
-        Swal.fire("تم", "تم تحديث الجلسة", "success");
+        updatePendingBadge();
     }
     window.updateSession = updateSession;
 
     async function confirmDeleteSession() {
         if (!confirm('حذف الجلسة؟')) return;
-        await db.from('sessions').delete().eq('id', editingSessionId);
-        
+        try {
+            await db.from('sessions').delete().eq('id', editingSessionId);
+            await db_local.sessions.delete(editingSessionId);
+        } catch {
+            await db_local.pendingOperations.add({
+                operation: 'delete_session',
+                data: { id: editingSessionId },
+                timestamp: Date.now()
+            });
+            await db_local.sessions.delete(editingSessionId);
+            Swal.fire("تنبيه", "تم حذف الجلسة محلياً، وسيتم رفع الحذف عند توفر الاتصال", "info");
+        }
         const editModal = bootstrap.Modal.getInstance(document.getElementById('editSessionModal'));
         if (editModal) editModal.hide();
-        
         loadUpcoming('week');
-        Swal.fire("تم", "تم الحذف", "success");
+        updatePendingBadge();
     }
     window.confirmDeleteSession = confirmDeleteSession;
 
-    // ========== السجل الأمني ==========
+    // ========== السجل الأمني (بدون تغيير كبير، لكن مع إضافة عمليات بحث محلية) ==========
     async function loadSecurityLogs() {
         try {
             let query = db.from('security_logs').select('*').order('created_at', { ascending: false }).limit(50);
@@ -968,7 +1229,7 @@
             if (action) query = query.eq('action_type', action);
 
             const { data, error } = await query;
-            if (error) return;
+            if (error) throw error;
             const container = document.getElementById('securityLogsResults');
             if (!data || data.length === 0) {
                 container.innerHTML = '<div class="alert alert-info">لا توجد سجلات</div>';
@@ -985,36 +1246,40 @@
                     </div>
                 </div>
             `).join('');
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            // إذا لم نتمكن من جلب السجلات، نعرض رسالة
+            document.getElementById('securityLogsResults').innerHTML = '<div class="alert alert-warning">لا يمكن تحميل السجلات حالياً (قد تكون دون اتصال)</div>';
+        }
     }
     window.loadSecurityLogs = loadSecurityLogs;
 
     async function viewLogDetails(id) {
         event.stopPropagation();
-        const { data } = await db.from('security_logs').select('*').eq('id', id).single();
-        if (!data) return;
-        currentSecurityLogId = id;
-        document.getElementById('securityLogDetails').innerHTML = `<pre class="log-details">${JSON.stringify(data, null, 2)}</pre>`;
-        document.getElementById('deleteLogBtn').style.display = 'block';
-        getModalInstance('securityLogModal').show();
+        try {
+            const { data } = await db.from('security_logs').select('*').eq('id', id).single();
+            if (!data) return;
+            currentSecurityLogId = id;
+            document.getElementById('securityLogDetails').innerHTML = `<pre class="log-details">${JSON.stringify(data, null, 2)}</pre>`;
+            document.getElementById('deleteLogBtn').style.display = 'block';
+            getModalInstance('securityLogModal').show();
+        } catch {
+            Swal.fire("خطأ", "لا يمكن عرض التفاصيل دون اتصال", "error");
+        }
     }
     window.viewLogDetails = viewLogDetails;
 
     async function deleteSecurityLog() {
         if (!confirm('حذف السجل؟')) return;
         await db.from('security_logs').delete().eq('id', currentSecurityLogId);
-        
         const modal = bootstrap.Modal.getInstance(document.getElementById('securityLogModal'));
         if (modal) modal.hide();
-        
         loadSecurityLogs();
     }
     window.deleteSecurityLog = deleteSecurityLog;
 
-    // ========== طباعة PDF ==========
+    // ========== طباعة PDF (بدون تغيير) ==========
     function printCasePDF() {
         if (!currentCaseForPrint) return;
-        
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({
             orientation: 'portrait',
@@ -1023,12 +1288,9 @@
             putOnlyUsedFonts: true,
             hotfix: true
         });
-        
         doc.setFont('Helvetica', 'normal');
-        
         const margin = 20;
         let y = 30;
-        
         doc.text('نظام إدارة القضايا', doc.internal.pageSize.width / 2, y, { align: 'center' });
         y += 10;
         doc.text(`العميل: ${currentCaseForPrint.client_name}`, margin, y, { align: 'right' });
@@ -1041,7 +1303,6 @@
         y += 10;
         doc.text('سجل الجلسات:', margin, y, { align: 'right' });
         y += 7;
-        
         if (currentCaseForPrint.sessions && currentCaseForPrint.sessions.length > 0) {
             currentCaseForPrint.sessions.forEach(s => {
                 const dateStr = new Date(s.session_date).toLocaleDateString('ar-EG');
@@ -1060,7 +1321,6 @@
         } else {
             doc.text('لا توجد جلسات مسجلة', margin, y, { align: 'right' });
         }
-        
         doc.save(`قضية_${currentCaseForPrint.case_number}.pdf`);
     }
     window.printCasePDF = printCasePDF;
@@ -1071,10 +1331,15 @@
     }
     window.clearForm = clearForm;
 
-    // ========== لم يعد هناك كود PWA مكرر هنا، تم حذفه ==========
-    // الدالة installPWA موجودة في الأعلى ولا تحتاج إلى إعادة تعريف
-    // window.installPWA = installPWA; // غير ضروري لأنها معرفة في النطاق العام
-
+    // دالة مساعدة للـ Modal
+    function getModalInstance(id) {
+        const el = document.getElementById(id);
+        let modal = bootstrap.Modal.getInstance(el);
+        if (!modal) {
+            modal = new bootstrap.Modal(el);
+        }
+        return modal;
+    }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
