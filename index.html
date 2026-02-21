@@ -40,6 +40,7 @@
           document.getElementById('installBtn').style.display = 'none';
         });
       }
+      window.installPWA = installPWA;
 
       // Service Worker Registration
       if ('serviceWorker' in navigator) {
@@ -430,6 +431,7 @@
 </div>
 
 <script>
+    // ========== إعداد Supabase و IndexedDB ==========
     const SB_URL = "https://iyhfafodhptcdwrjywek.supabase.co";
     const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5aGZhZm9kaHB0Y2R3cmp5d2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMzUzODYsImV4cCI6MjA4MjcxMTM4Nn0.YmeMSDkQ3Z_vpyMTyZ-3jbKLFzVZzwcLeDsdczrErHQ";
     const db = supabase.createClient(SB_URL, SB_KEY);
@@ -442,6 +444,7 @@
         pendingOperations: '++id, operation, data, timestamp'
     });
 
+    // متغيرات عامة
     let currentCaseId = null;
     let currentCaseForPrint = null;
     let editingCaseId = null;
@@ -508,7 +511,7 @@
     window.addEventListener('online', syncPendingOperations);
 
     // ========== تسجيل الدخول ==========
-    function login() {
+    window.login = function() {
         if (document.getElementById('password').value === "mahmoud237") {
             document.getElementById('loginPage').style.display = "none";
             document.getElementById('mainContent').style.display = "block";
@@ -519,11 +522,10 @@
         } else {
             Swal.fire("خطأ", "كلمة المرور غير صحيحة", "error");
         }
-    }
-    window.login = login;
+    };
 
     // ========== الإحصائيات ==========
-    async function loadStats() {
+    window.loadStats = async function() {
         try {
             const { count: cCount } = await db.from('cases').select('*', { count: 'exact', head: true });
             const { count: sCount } = await db.from('sessions').select('*', { count: 'exact', head: true });
@@ -553,11 +555,10 @@
             const upcoming = localSessions.filter(s => s.session_date >= today && s.session_date <= nextWeek);
             document.getElementById('stat-sessions').innerText = upcoming.length;
         }
-    }
-    window.loadStats = loadStats;
+    };
 
     // ========== الجلسات القادمة ==========
-    async function loadUpcoming(range, btn) {
+    window.loadUpcoming = async function(range, btn) {
         if (btn) {
             document.querySelectorAll('#sessions .btn-group .btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -621,10 +622,9 @@
             }
         }
         container.innerHTML = html;
-    }
-    window.loadUpcoming = loadUpcoming;
+    };
 
-    function getStatusClass(status) {
+    window.getStatusClass = function(status) {
         const map = {
             'جديدة': 'status-new',
             'مؤجلة': 'status-postponed',
@@ -634,10 +634,10 @@
             'محكوم فيها': 'status-judged'
         };
         return map[status] || 'status-new';
-    }
+    };
 
     // ========== البحث عن القضايا لإضافتها للجلسات ==========
-    async function searchCasesForSession(q) {
+    window.searchCasesForSession = async function(q) {
         if (q.length < 2) {
             document.getElementById('caseSearchResults').style.display = 'none';
             return;
@@ -668,10 +668,9 @@
             resDiv.innerHTML = '<div class="text-center p-2">لا توجد نتائج</div>';
             resDiv.style.display = 'block';
         }
-    }
-    window.searchCasesForSession = searchCasesForSession;
+    };
 
-    async function selectCaseForSession(id) {
+    window.selectCaseForSession = async function(id) {
         let data;
         try {
             const { data: d, error } = await db.from('cases').select('*').eq('id', id).single();
@@ -706,11 +705,10 @@
         
         document.getElementById('caseSearchResults').style.display = 'none';
         document.getElementById('calendarBtn').disabled = false;
-    }
-    window.selectCaseForSession = selectCaseForSession;
+    };
 
     // ========== حفظ الجلسة ==========
-    async function saveSession() {
+    window.saveSession = async function() {
         if (!currentCaseId) return Swal.fire("تنبيه", "يجب اختيار قضية أولاً", "warning");
         if (!document.getElementById('s_date').value) return Swal.fire("تنبيه", "أدخل تاريخ الجلسة", "warning");
 
@@ -725,7 +723,7 @@
             const { error } = await db.from('sessions').insert([sessionData]);
             if (error) throw error;
             Swal.fire("تم", "تم تسجيل الجلسة", "success");
-            await db_local.sessions.put({ ...sessionData, id: 'temp_' + Date.now() }); // تخزين محلي
+            await db_local.sessions.put({ ...sessionData, id: 'temp_' + Date.now() });
         } catch {
             await db_local.pendingOperations.add({
                 operation: 'insert_session',
@@ -739,11 +737,10 @@
         loadUpcoming('week');
         loadStats();
         updatePendingBadge();
-    }
-    window.saveSession = saveSession;
+    };
 
     // ========== إضافة إلى تقويم جوجل ==========
-    function addToGoogleCalendar() {
+    window.addToGoogleCalendar = function() {
         const startDate = document.getElementById('s_date').value;
         if (!startDate) return Swal.fire("تنبيه", "أدخل تاريخ الجلسة أولاً", "warning");
         
@@ -759,8 +756,7 @@
         
         const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(eventTitle)}&dates=${start}/${end}&details=${encodeURIComponent(eventDetails)}`;
         window.open(url, '_blank');
-    }
-    window.addToGoogleCalendar = addToGoogleCalendar;
+    };
 
     // ========== توليد كود القضية ==========
     async function generateCaseCode(caseYear) {
@@ -827,7 +823,7 @@
     };
 
     // ========== البحث العام ==========
-    async function searchCases() {
+    window.searchCases = async function() {
         const q = document.getElementById('searchInput').value;
         if (!q.trim()) return Swal.fire("تنبيه", "أدخل كلمة للبحث", "warning");
         
@@ -889,8 +885,7 @@
         }
         loadSecurityLogs();
         updatePendingBadge();
-    }
-    window.searchCases = searchCases;
+    };
 
     async function getClientIP() {
         try {
@@ -903,7 +898,7 @@
     }
 
     // ========== البحث التاريخي ==========
-    async function searchByDateRange() {
+    window.searchByDateRange = async function() {
         const from = document.getElementById('searchFrom').value;
         const to = document.getElementById('searchTo').value;
         if (!from || !to) return Swal.fire("تنبيه", "أدخل النطاق الزمني", "warning");
@@ -955,11 +950,10 @@
             }
         }
         container.innerHTML = html;
-    }
-    window.searchByDateRange = searchByDateRange;
+    };
 
-    // ========== فتح تفاصيل القضية ==========
-    async function openCaseDetails(id) {
+    // ========== فتح تفاصيل القضية (هذه الدالة يجب أن تكون معرفة على window) ==========
+    window.openCaseDetails = async function(id) {
         let c;
         try {
             const { data, error } = await db.from('cases').select('*').eq('id', id).single();
@@ -1018,11 +1012,10 @@
         `;
 
         getModalInstance('caseModal').show();
-    }
-    window.openCaseDetails = openCaseDetails;
+    };
 
     // ========== دوال تعديل القضية ==========
-    async function loadCaseForEdit(id) {
+    window.loadCaseForEdit = async function(id) {
         console.log('Loading case for edit:', id);
         let data;
         try {
@@ -1055,10 +1048,9 @@
             const editModal = getModalInstance('editCaseModal');
             editModal.show();
         }, 500);
-    }
-    window.loadCaseForEdit = loadCaseForEdit;
+    };
 
-    async function updateCase() {
+    window.updateCase = async function() {
         const updated = {
             client_name: document.getElementById('edit_client_name').value,
             client_phone: document.getElementById('edit_client_phone').value,
@@ -1091,10 +1083,9 @@
         Swal.fire("تم", "تم تحديث القضية", "success");
         searchCases();
         updatePendingBadge();
-    }
-    window.updateCase = updateCase;
+    };
 
-    async function deleteCaseInModal(id) {
+    window.deleteCaseInModal = async function(id) {
         if (!confirm('هل أنت متأكد من حذف القضية وجميع جلساتها؟')) return;
         try {
             await db.from('sessions').delete().eq('case_id', id);
@@ -1115,11 +1106,10 @@
         if (viewModal) viewModal.hide();
         searchCases();
         updatePendingBadge();
-    }
-    window.deleteCaseInModal = deleteCaseInModal;
+    };
 
     // ========== دوال تعديل وحذف الجلسات ==========
-    async function loadSessionForEdit(id) {
+    window.loadSessionForEdit = async function(id) {
         console.log('Loading session for edit:', id);
         let data;
         try {
@@ -1146,10 +1136,9 @@
             const editSessionModal = getModalInstance('editSessionModal');
             editSessionModal.show();
         }, 500);
-    }
-    window.loadSessionForEdit = loadSessionForEdit;
+    };
 
-    async function updateSession() {
+    window.updateSession = async function() {
         const updated = {
             session_date: document.getElementById('edit_session_date').value,
             case_status: document.getElementById('edit_session_case_status').value,
@@ -1171,10 +1160,9 @@
         if (editModal) editModal.hide();
         loadUpcoming('week');
         updatePendingBadge();
-    }
-    window.updateSession = updateSession;
+    };
 
-    async function confirmDeleteSession() {
+    window.confirmDeleteSession = async function() {
         if (!confirm('حذف الجلسة؟')) return;
         try {
             await db.from('sessions').delete().eq('id', editingSessionId);
@@ -1192,11 +1180,10 @@
         if (editModal) editModal.hide();
         loadUpcoming('week');
         updatePendingBadge();
-    }
-    window.confirmDeleteSession = confirmDeleteSession;
+    };
 
     // ========== السجل الأمني ==========
-    async function loadSecurityLogs() {
+    window.loadSecurityLogs = async function() {
         try {
             let query = db.from('security_logs').select('*').order('created_at', { ascending: false }).limit(50);
             const phone = document.getElementById('logPhoneSearch').value;
@@ -1227,10 +1214,9 @@
         } catch (err) {
             document.getElementById('securityLogsResults').innerHTML = '<div class="alert alert-warning">لا يمكن تحميل السجلات حالياً (قد تكون دون اتصال)</div>';
         }
-    }
-    window.loadSecurityLogs = loadSecurityLogs;
+    };
 
-    async function viewLogDetails(id) {
+    window.viewLogDetails = async function(id) {
         event.stopPropagation();
         try {
             const { data } = await db.from('security_logs').select('*').eq('id', id).single();
@@ -1242,20 +1228,18 @@
         } catch {
             Swal.fire("خطأ", "لا يمكن عرض التفاصيل دون اتصال", "error");
         }
-    }
-    window.viewLogDetails = viewLogDetails;
+    };
 
-    async function deleteSecurityLog() {
+    window.deleteSecurityLog = async function() {
         if (!confirm('حذف السجل؟')) return;
         await db.from('security_logs').delete().eq('id', currentSecurityLogId);
         const modal = bootstrap.Modal.getInstance(document.getElementById('securityLogModal'));
         if (modal) modal.hide();
         loadSecurityLogs();
-    }
-    window.deleteSecurityLog = deleteSecurityLog;
+    };
 
     // ========== طباعة PDF ==========
-    function printCasePDF() {
+    window.printCasePDF = function() {
         if (!currentCaseForPrint) return;
         
         const { jsPDF } = window.jspdf;
@@ -1305,14 +1289,12 @@
         }
         
         doc.save(`قضية_${currentCaseForPrint.case_number}.pdf`);
-    }
-    window.printCasePDF = printCasePDF;
+    };
 
     // ========== مسح النموذج ==========
-    function clearForm() {
+    window.clearForm = function() {
         document.getElementById('caseForm').reset();
-    }
-    window.clearForm = clearForm;
+    };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
