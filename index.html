@@ -432,8 +432,9 @@
 
 <script>
     // ========== إعداد Supabase و IndexedDB ==========
-    const SB_URL = "https://iyhfafodhptcdwrjywek.supabase.co";
-    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5aGZhZm9kaHB0Y2R3cmp5d2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMzUzODYsImV4cCI6MjA4MjcxMTM4Nn0.YmeMSDkQ3Z_vpyMTyZ-3jbKLFzVZzwcLeDsdczrErHQ";
+    // يجب أن تستخدم لوحة الإدارة نفس مشروع Supabase الذي تستعلم منه صفحة «تابع قضيتك» في ostazlaw.
+    const SB_URL = "https://mgvyieyismzzvdejsvcv.supabase.co";
+    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ndnlpZXlpc216enZkZWpzdmN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NDI2NTMsImV4cCI6MjA5OTExODY1M30.xE-K83Ku3ei3GlFkwKivtBzGMDyK60R6MnYr2eEFz-I";
     const db = supabase.createClient(SB_URL, SB_KEY);
 
     // IndexedDB setup
